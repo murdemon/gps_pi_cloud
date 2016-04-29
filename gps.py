@@ -254,10 +254,7 @@ def Init():
 theTotalDistance = 0.0
 theTotalDistanceToday = 0.0
 counter = 1
-headerLine = 'Count:' + "," + 'Date (dd/mm/yyyy):' + "," + 'Time (decimal seconds):' + "," + 'Latitude (decimal degrees):' + "," + 'Longitude (decimal degrees):' + "," + 'Velocity (miles per hour):' + "," + 'Current Bearing (degrees):' + "," + 'Total Distance (miles):' + "," + 'Total Distance Today (miles):' + chr(13) + chr(10)
 outputFile = open('/home/pi/GPS/LoggedData.csv', 'a')  # open log file
-outputFile.write(headerLine)
-outputFile.close()
 
 
 reader = pynmea2.NMEAStreamReader()
@@ -282,12 +279,16 @@ def LoopProc():
  global previousTime
  global reader
  global data
- 
+ global outputFile
+ global mesur_dist
+
  data = theGPSDevice.read()
 
  try:
   for msg in reader.next(data):
     log.info(msg)
+    outputFile.write(str(msg) + chr(13) + chr(10))                       # log the data
+
     inputLine = str(msg) + "  "
     currentGeoPoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]    # Latitude  Longitude  Time  Velocity  Bearing  Date
     if verifyVDB(inputLine, currentGeoPoint):
@@ -295,6 +296,14 @@ def LoopProc():
         theVelocity = previousGeoPoint[3] * 1.150777    # convert knots to miles per hour
         theBearing = previousGeoPoint[4]
         theDate = currentGeoPoint[5]
+   
+	if counter == 1 and currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0 and not We_on_home():
+         outputFile_dist = open('/home/pi/GPS/theTotalDistance', 'r')  # open log file
+         line = outputFile_dist.readline()
+         theTotalDistance = float(line)
+         outputFile_dist.close()
+	 log.info("Get Distance from saved file " + str(theTotalDistance))
+	 mesur_dist = True
         if ( (currentTime - previousTime) > timeDelay  ) and ( (currentGeoPoint[0] != previousGeoPoint[0]) or (currentGeoPoint[1] != previousGeoPoint[1]) ):
             theDistanceChange = distanceTravelled(previousGeoPoint, currentGeoPoint)
             if (theVelocity == 0.0):
@@ -309,14 +318,9 @@ def LoopProc():
             previousGeoPoint = currentGeoPoint
             previousTime = currentTime
             previousDate = theDate
-            outputLine = str(counter) + "," + str(theDate) + "," + str(currentTime) + "," + str(currentGeoPoint[0]) + "," + str(currentGeoPoint[1]) + "," + format(theVelocity, '.1f') + "," + format(theBearing, '.1f') + "," + format(theTotalDistance, '.1f') + "," + format(theTotalDistanceToday, '.1f') + chr(13) + chr(10)
-            outputFile = open('/home/pi/GPS/LoggedData.csv', 'a')  # open log file in append mode
-            outputFile.write(outputLine)                       # log the data
-            outputFile.close()                                 # keep the file closed, except when writing to it!
-            outputFile = open('/home/pi/GPS/gpsnow.csv', 'w')      # open log file and erase any existing file first
-            outputFile.write(headerLine)                       # first write the header
-            outputFile.write(outputLine)                       # now write the last logged data line
-            outputFile.close()                                 # keep the file closed, except when writing to it!
+	    outputFile_dist = open('/home/pi/GPS/theTotalDistance', 'w')  # open log file
+	    outputFile_dist.write(str(theTotalDistance)+ chr(13) + chr(10))
+	    outputFile_dist.close() 
             log.info("Counter = " + str(counter))                 # log.info the value of the counter            
             counter = counter + 1                              # increment the counter only when we have a valid sentence
 	    return 1
@@ -332,7 +336,7 @@ def We_on_home():
   log_diff = abs(float(home_longitude) -  currentGeoPoint[1])
   log.info(currentGeoPoint[0])
   log.info(currentGeoPoint[1])
-  if lat_diff < 0.00009 and log_diff < 0.00009:
+  if lat_diff < 0.0002 and log_diff < 0.0002:
     log.info('WIFI We at home!!!!!')
     return True
   else:
@@ -407,6 +411,10 @@ def updating_cloud():
     global sending_in_progress
     global delay
 
+    file_emty = os.stat('/home/pi/GPS/setSensorData.csv').st_size==0
+    if not file_emty and Check_WiFi() and We_on_home():
+	new_data = 1
+
     if new_data == 1 and sending_in_progress == 0:
         csvfile.close()
 	sending_in_progress = 1
@@ -436,7 +444,9 @@ def Cloud_Loop():
  global theTotalDistance
  global mesur_dist
  global new_data
+ global currentGeoPoint
 
+ log.info("Cloud loop "+str(currentGeoPoint[0])+" "+str(currentGeoPoint[1])+" "+str(mesur_dist))
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
  	home = We_on_home()
         if not home and was_home and not mesur_dist:
@@ -445,7 +455,7 @@ def Cloud_Loop():
 	   theTotalDistance = 0.0
 	was_home = home
 	
-	if mesur_dist and theTotalDistance > 5.0 and home and Check_WiFi():
+	if mesur_dist and theTotalDistance > 1.0 and home:
 	   log.info("Going distance is " + str(theTotalDistance))
 	   save_csv(theTotalDistance)
 	   mesur_dist = False
@@ -467,16 +477,17 @@ def Timers():
  Stop_Counter = Stop_Counter + 1
 # else:
 #	Stop_Counter = 0
-# if Stop_Counter > 5 and Stop_Counter < 20:
-#	  home_latitude = config.set('conf','home_latitude','15')
-#	  home_longitude = config.set('conf','home_longitude','15')
-#	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL OUTTTTTT")
-# if Stop_Counter > 10:
-#	  theTotalDistance = 500
-# if Stop_Counter > 20:
-#          home_latitude = config.set('conf','home_latitude','34.026816')
-#          home_longitude = config.set('conf','home_longitude','118.296722')
-#	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL BACK")
+ if False:
+  if Stop_Counter > 5 and Stop_Counter < 20:
+	  home_latitude = config.set('conf','home_latitude','15')
+	  home_longitude = config.set('conf','home_longitude','15')
+	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL OUTTTTTT")
+  if Stop_Counter > 10:
+	  theTotalDistance = 500
+  if Stop_Counter > 20:
+          home_latitude = config.set('conf','home_latitude','34.026816')
+          home_longitude = config.set('conf','home_longitude','118.296722')
+	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL BACK")
  return True
 
 def fail(f):
