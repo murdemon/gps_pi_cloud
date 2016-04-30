@@ -32,10 +32,12 @@ config = ConfigParser.RawConfigParser()
 config.read('/home/pi/GPS/gps.conf')
 config_set(config)
 
-logging.basicConfig(filename='/home/pi/GPS/gps.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+if len(sys.argv) == 1:
+	logging.basicConfig(filename='/home/pi/GPS/gps.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 log = logging.getLogger()
-#log.setLevel(logging.INFO)
+if len(sys.argv) > 1:
+	log.setLevel(logging.INFO)
 
 log_set(log)
 
@@ -46,20 +48,30 @@ timeDelay = 0
 theTotalDistance = 0.0
 theTotalDistanceToday = 0.0
 counter = 1
+
 theGPSDevice = serial.Serial()
 previousGeoPoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 currentGeoPoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-previousTime = previousGeoPoint[2]
-theVelocity = previousGeoPoint[3] * 1.150777
-theBearing = previousGeoPoint[4]
-theDate = previousGeoPoint[5]
-previousDate = theDate
-theTotalDistance = 0.0
-theTotalDistanceToday = 0.0
+previousTime = 0.0
+theVelocity = 0.0
+theBearing = 0.0
+theDate = 0.0
+previousDate = 0.0
 currentTime = 0.0
-previousTime = currentTime
+previousTime = 0.0
 
+
+outputFile = open('/home/pi/GPS/LoggedData.csv', 'a')  # open log file
+reader = pynmea2.NMEAStreamReader()
+data = ""
+
+delay = 0
+home = False
+was_home = True
+mesur_dist = False
+
+Stop_Counter = 0
 
 
 def Init():
@@ -79,6 +91,7 @@ def Init():
  global theTotalDistanceToday
  global currentTime
  global previousTime
+ global mesur_dist
 #----------------------------------------------------------------#
 # Init Serial port
 #----------------------------------------------------------------#
@@ -96,18 +109,22 @@ def Init():
     sys.exit()
  theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
  log.info(thePortNumber)
+#-----------------------------------------------#
+#  Read retain from file
+#-----------------------------------------------#
+ try:
+  outputFile_dist = open('/home/pi/GPS/retain', 'r')  # open log file
+  line = outputFile_dist.readline()
+  theTotalDistance = float(line)
+  line = outputFile_dist.readline()
+  mesur_dist = line
+  outputFile_dist.close()
+  log.info("RETAIN : Get Distance from saved file " + str(theTotalDistance))
+  log.info("RETAIN : Get mesure from saved file " + str(mesur_dist))
 
+ except:
+  log.info("Error not get Retain")
 
-
-
-theTotalDistance = 0.0
-theTotalDistanceToday = 0.0
-counter = 1
-outputFile = open('/home/pi/GPS/LoggedData.csv', 'a')  # open log file
-
-
-reader = pynmea2.NMEAStreamReader()
-data = ""
 
 def GPS_Loop():
  global timeDelay
@@ -147,16 +164,9 @@ def GPS_Loop():
         theBearing = previousGeoPoint[4]
         theDate = currentGeoPoint[5]
    
-	if counter == 1 and currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0 and not We_on_home(currentGeoPoint,config):
-         outputFile_dist = open('/home/pi/GPS/theTotalDistance', 'r')  # open log file
-         line = outputFile_dist.readline()
-         theTotalDistance = float(line)
-         outputFile_dist.close()
-	 log.info("Get Distance from saved file " + str(theTotalDistance))
-	 mesur_dist = True
         if ( (currentTime - previousTime) > timeDelay  ) and ( (currentGeoPoint[0] != previousGeoPoint[0]) or (currentGeoPoint[1] != previousGeoPoint[1]) ):
             theDistanceChange = distanceTravelled(previousGeoPoint, currentGeoPoint)
-            if (theVelocity == 0.0):
+            if (theVelocity < 1.0):
                 theDistanceChange =0.0;
             if (theDate != previousDate):
                 theTotalDistanceToday = 0.0
@@ -168,9 +178,6 @@ def GPS_Loop():
             previousGeoPoint = currentGeoPoint
             previousTime = currentTime
             previousDate = theDate
-	    outputFile_dist = open('/home/pi/GPS/theTotalDistance', 'w')  # open log file
-	    outputFile_dist.write(str(theTotalDistance)+ chr(13) + chr(10))
-	    outputFile_dist.close() 
             log.info("Counter = " + str(counter))                 # log.info the value of the counter            
             counter = counter + 1                              # increment the counter only when we have a valid sentence
 	    return 1
@@ -178,11 +185,6 @@ def GPS_Loop():
  except:
   log.info ("Can't parse");
 
-
-delay = 0
-home = False
-was_home = True
-mesur_dist = False
 
 def Logic_Loop():
  global home
@@ -194,6 +196,7 @@ def Logic_Loop():
  global config
 
  log.info("Cloud loop "+str(currentGeoPoint[0])+" "+str(currentGeoPoint[1])+" "+str(mesur_dist))
+
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
  	home = We_on_home(currentGeoPoint,config)
         if not home and was_home and not mesur_dist:
@@ -206,25 +209,30 @@ def Logic_Loop():
 	   log.info("Going distance is " + str(theTotalDistance))
 	   save_csv(theTotalDistance,config)
 	   mesur_dist = False
+
 	if mesur_dist:
 	   log.info(" Distance is " + str(theTotalDistance))
+
  return True
 
 
-
-Stop_Counter = 0 
 
 def Timers():
  global Stop_Counter
  global theVelocity
  global theTotalDistance
  global currentGeoPoint
-#log.info("Timer loop")
-# if theVelocity < 1 and not GPIO.input(2):
+
+
+ outputFile_dist = open('/home/pi/GPS/retain', 'w')  # open log file
+ outputFile_dist.write(str(theTotalDistance)+ chr(13) + chr(10))
+ outputFile_dist.write(str(mesur_dist)+ chr(13) + chr(10))
+ outputFile_dist.close()
+
+
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
    Stop_Counter = Stop_Counter + 1
-# else:
-#	Stop_Counter = 0
+
  if False:
   if Stop_Counter > 5 and Stop_Counter < 20:
 	  home_latitude = config.set('conf','home_latitude','15')
