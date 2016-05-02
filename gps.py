@@ -18,7 +18,8 @@ from twisted.internet.task import LoopingCall
 from twisted.internet import reactor
 from requests_twisted import TwistedRequestsSession
 import logging
-
+import json
+import ast
 
 from gps_helper import updating_cloud
 from gps_helper import verifyVDB
@@ -113,11 +114,12 @@ def Init():
 #  Read retain from file
 #-----------------------------------------------#
  try:
+# if True:
   outputFile_dist = open('/home/pi/GPS/retain', 'r')  # open log file
   line = outputFile_dist.readline()
   theTotalDistance = float(line)
   line = outputFile_dist.readline()
-  mesur_dist = line
+  mesur_dist = ast.literal_eval(line)
   outputFile_dist.close()
   log.info("RETAIN : Get Distance from saved file " + str(theTotalDistance))
   log.info("RETAIN : Get mesure from saved file " + str(mesur_dist))
@@ -210,6 +212,11 @@ def Logic_Loop():
 	   save_csv(theTotalDistance,config)
 	   mesur_dist = False
 
+        if mesur_dist and theTotalDistance <= 1.0 and home:
+           log.info("Weon home with small distance (clear) is " + str(theTotalDistance))
+           theTotalDistance = 0.0
+	   mesur_dist = False
+
 	if mesur_dist:
 	   log.info(" Distance is " + str(theTotalDistance))
 
@@ -233,7 +240,7 @@ def Timers():
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
    Stop_Counter = Stop_Counter + 1
 
- if False:
+ if len(sys.argv) > 1:
   if Stop_Counter > 5 and Stop_Counter < 20:
 	  home_latitude = config.set('conf','home_latitude','15')
 	  home_longitude = config.set('conf','home_longitude','15')

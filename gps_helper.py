@@ -19,9 +19,11 @@ from twisted.internet import reactor
 from requests_twisted import TwistedRequestsSession
 
 import logging
+import ast
+
 session = TwistedRequestsSession()
 log = logging.getLogger()
-
+was_wifi = False
 new_data = 0
 data_was_updated = 0
 sending_in_progress = 0
@@ -167,7 +169,7 @@ def verifyVDB(inputLine, geoPoint):
 
 def Check_WiFi():
   hostname = "www.rcofox.com"
-  response = os.system("ping -c 1 " + hostname)
+  response = os.system("ping -c 1 " + hostname + " 1>/dev/null")
   if response == 0:
     pingstatus = "Network Active"
     return True
@@ -180,8 +182,11 @@ def Power_Off():
 
 
 def save_csv(val,config):
-		global dt_now_PLC
-		global new_data
+	global dt_now_PLC
+	global new_data
+	global sending_in_progress
+	
+	if sending_in_progress == 0:
 		now = dt_now_PLC
 		dt = dt_now_PLC
 		timestamp = _time.mktime(dt.timetuple())
@@ -211,11 +216,18 @@ def updating_cloud():
     global sending_in_progress
     global delay
     global config
+    global sending_in_progress
+    global was_wifi
 
     log.info("POST loop " + str(new_data))
-#    file_emty = os.stat('/home/pi/GPS/setSensorData.csv').st_size==0
-#    if not file_emty and Check_WiFi() and We_on_home():
-#	new_data = 1
+
+    file_emty = os.stat('/home/pi/GPS/setSensorData.csv').st_size==0
+    is_wifi = Check_WiFi()
+    if not file_emty and is_wifi and not was_wifi and  sending_in_progress == 0:
+	log.info("We on Wifi and file not emty");
+	new_data = 1
+    was_wifi = is_wifi
+
     post_url = config.get('conf','post_url')
     if new_data == 1 and sending_in_progress == 0:
         csvfile.close()
@@ -225,7 +237,7 @@ def updating_cloud():
 	#-----------------------------------------------#
         log.info('Upload data to Cloud')
         multiple_files = [('text', ('setSensorData.csv', open('/home/pi/GPS/setSensorData.csv', 'rb'), 'text/plain'))]
-        r = session.post(post_url, files=multiple_files, timeout=60, stream=True)
+        r = session.post(post_url, files=multiple_files, timeout=20, stream=True)
 	r.addCallback(print_status)
 	r.addErrback(handleFailure) 
 
