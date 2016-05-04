@@ -13,7 +13,7 @@ import pynmea2
 import ConfigParser
 from datetime import datetime
 from datetime import timedelta
-
+                                
 from twisted.internet.task import LoopingCall
 from twisted.internet import reactor
 from requests_twisted import TwistedRequestsSession
@@ -152,7 +152,7 @@ def GPS_Loop():
  global config
 
  data = theGPSDevice.read()
-
+ theDistanceChange  = 0.0
  try:
   for msg in reader.next(data):
     log.info(msg)
@@ -180,13 +180,15 @@ def GPS_Loop():
             previousGeoPoint = currentGeoPoint
             previousTime = currentTime
             previousDate = theDate
-            log.info("Counter = " + str(counter))                 # log.info the value of the counter            
+            log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+	    log.info("Counter = " + str(counter))                 # log.info the value of the counter            
             counter = counter + 1                              # increment the counter only when we have a valid sentence
 	    return 1
-
+    else:
+	currentGeoPoint = previousGeoPoint	
  except:
   log.info ("Can't parse");
-
+# log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
 
 def Logic_Loop():
  global home

@@ -47,9 +47,11 @@ def log_set(log_main):
 def convertGPSToXYZ(geoPoint):
     earthRadius = 3963.34
     Z = earthRadius*math.sin(math.radians(geoPoint[0]))
-    r = math.sqrt( math.pow(earthRadius, 2) - math.pow(Z, 2) )
-    Y = r * math.sin(math.radians(geoPoint[1]))
-    X = math.sqrt( math.pow(earthRadius, 2) - math.pow(Y, 2) - math.pow(Z, 2) )
+#    r = math.sqrt( math.pow(earthRadius, 2) - math.pow(Z, 2) )
+#    Y = r * math.sin(math.radians(geoPoint[1]))
+#    X = math.sqrt( math.pow(earthRadius, 2) - math.pow(Y, 2) - math.pow(Z, 2) )
+    X = earthRadius*math.cos(math.radians(geoPoint[0]))*math.cos(math.radians(geoPoint[1]))
+    Y = earthRadius*math.cos(math.radians(geoPoint[0]))*math.sin(math.radians(geoPoint[1]))
     if math.fabs(geoPoint[1])>90.0:
         X = -1.0 * X
     return [X, Y, Z]
