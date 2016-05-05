@@ -108,7 +108,8 @@ def Init():
  if thePortNumber == '':
     log.info('Sorry but the GPS device is not plugged in')
     sys.exit()
- theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
+ #theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
+ theGPSDevice = open('/home/pi/GPS/testgps.txt', 'r')
  log.info(thePortNumber)
 #-----------------------------------------------#
 #  Read retain from file
@@ -151,7 +152,7 @@ def GPS_Loop():
  global mesur_dist
  global config
 
- data = theGPSDevice.read()
+ data = theGPSDevice.read(4)
  theDistanceChange  = 0.0
  try:
   for msg in reader.next(data):
@@ -167,24 +168,30 @@ def GPS_Loop():
         theDate = currentGeoPoint[5]
    
         if ( (currentTime - previousTime) > timeDelay  ) and ( (currentGeoPoint[0] != previousGeoPoint[0]) or (currentGeoPoint[1] != previousGeoPoint[1]) ):
-	 if (previousGeoPoint[0] != 0 and previousGeoPoint[1] != 0):
-            theDistanceChange = distanceTravelled(previousGeoPoint, currentGeoPoint)
-            if (theVelocity < 1.0):
-                theDistanceChange =0.0;
-            if (theDate != previousDate):
-                theTotalDistanceToday = 0.0
-            else:
-                theTotalDistanceToday = theTotalDistanceToday + theDistanceChange
+	    if (previousGeoPoint[0] != 0 and previousGeoPoint[1] != 0):
+             theDistanceChange = distanceTravelled(previousGeoPoint, currentGeoPoint)
+#            if (theVelocity < 1.0):
+#                theDistanceChange =0.0;
+#            if (theDate != previousDate):
+#                theTotalDistanceToday = 0.0
+#            else:
+#                theTotalDistanceToday = theTotalDistanceToday + theDistanceChange
+             theTotalDistance = theTotalDistance + theDistanceChange
 
-            theTotalDistance = theTotalDistance + theDistanceChange
-            previousGeoPoint[0] = currentGeoPoint[0]
+#            print("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+#            print("Counter = " + str(counter))                 # log.info the value of the counter
+
+             print(str(counter) +","+str(theTotalDistance)+","+str(currentGeoPoint[0]) + ", " + str(currentGeoPoint[1]))    
+	    previousGeoPoint[0] = currentGeoPoint[0]
             previousGeoPoint[1] = currentGeoPoint[1]
+
             previousGeoPoint = currentGeoPoint
             previousTime = currentTime
             previousDate = theDate
-            log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+            log.info("Added distance " + str(theDistanceChange*1609.344) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
 	    log.info("Counter = " + str(counter))                 # log.info the value of the counter            
-            counter = counter + 1                              # increment the counter only when we have a valid sentence
+            
+	    counter = counter + 1                              # increment the counter only when we have a valid sentence
 	    return 1
     else:
 	currentGeoPoint = previousGeoPoint	
@@ -244,7 +251,7 @@ def Timers():
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
    Stop_Counter = Stop_Counter + 1
 
- if len(sys.argv) > 1:
+ if False:#len(sys.argv) > 1:
   if Stop_Counter > 5 and Stop_Counter < 20:
 	  home_latitude = config.set('conf','home_latitude','15')
 	  home_longitude = config.set('conf','home_longitude','15')
@@ -252,8 +259,8 @@ def Timers():
   if Stop_Counter > 10:
 	  theTotalDistance = 500
   if Stop_Counter > 20:
-          home_latitude = config.set('conf','home_latitude','34.044634')
-          home_longitude = config.set('conf','home_longitude','-118.494581')
+          home_latitude = config.set('conf','home_latitude','34.026816')
+          home_longitude = config.set('conf','home_longitude','118.296722')
 	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL BACK")
  return True
 

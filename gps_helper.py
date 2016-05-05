@@ -1,4 +1,5 @@
 #!/usr/bin/python
+
 import time as _time
 import csv
 import grequests
@@ -63,6 +64,13 @@ def distanceTravelled(geoPoint1, geoPoint2):
 
 
 
+def ConvToDecim(cord):
+    deg = int(float(cord)/100)
+    min = int(float(cord)-float(deg)*100)
+    sec = ((float(cord)-float(deg)*100-float(min))*60)
+    decim = float(deg)+float(min)/60+float(sec)/3600
+#    print(cord, deg,min,sec, str(decim))
+    return decim
 
 def convertHHMMSSToTotalSeconds(inputTime):
     # the original input time is in the format hhmmss.xyz
@@ -105,6 +113,7 @@ def verifyVDB(inputLine, geoPoint):
         return False
     try:
         degreesLatitude = float(theSplit[3]) / 100.0
+	degreesLatitude = ConvToDecim(theSplit[3])
         if theSplit[3] == 'S':
             degreesLatitude = -1.0*degreesLatitude
         geoPoint[0] = degreesLatitude    
@@ -116,7 +125,8 @@ def verifyVDB(inputLine, geoPoint):
         return False
     try:
         degreesLongitude = float(theSplit[5]) / 100.0
-        if theSplit[6] == 'E':
+        degreesLongitude = ConvToDecim(theSplit[5])
+	if theSplit[6] == 'W':
             degreesLongitude = -1.0*degreesLongitude
         geoPoint[1] = degreesLongitude    
     except ValueError:
@@ -238,7 +248,8 @@ def updating_cloud():
 	# if have ne data make API setSensorData
 	#-----------------------------------------------#
         log.info('Upload data to Cloud')
-        multiple_files = [('text', ('setSensorData.csv', open('/home/pi/GPS/setSensorData.csv', 'rb'), 'text/plain'))]
+        csvfile = open('/home/pi/GPS/setSensorData.csv', 'rb')
+	multiple_files = [('text', ('setSensorData.csv', csvfile , 'text/plain'))]
         r = session.post(post_url, files=multiple_files, timeout=20, stream=True)
 	r.addCallback(print_status)
 	r.addErrback(handleFailure) 
@@ -255,9 +266,8 @@ def We_on_home(currentGeoPoint,config):
   home_longitude = config.get('conf','home_longitude')
   lat_diff = abs(float(home_latitude) - currentGeoPoint[0])
   log_diff = abs(float(home_longitude) -  currentGeoPoint[1])
-  log.info(currentGeoPoint[0])
-  log.info(currentGeoPoint[1])
-  if lat_diff < 0.0002 and log_diff < 0.0002:
+  log.info("Home check"+str(currentGeoPoint[0])+"/"+str(currentGeoPoint[1])+" "+str(home_latitude)+"/"+str(home_longitude)+" "+str(lat_diff)+"/"+str(log_diff))
+  if lat_diff < 0.0005 and log_diff < 0.0005:
     log.info('WIFI We at home!!!!!')
     return True
   else:
@@ -271,6 +281,7 @@ def handleFailure(f):
          global data_was_updated
          global sending_in_progress
 
+	 csvfile.close()
 	 sending_in_progress = 0 
 	 log.info("Timeout POST Sensor data to Cloud ")
          csvfile = open('/home/pi/GPS/setSensorData.csv', 'ab')
@@ -285,6 +296,7 @@ def print_status(r):
 		global data_was_updated
 		global sending_in_progress
 
+		csvfile.close()
 		sending_in_progress = 0
                 log.info('Status: '+str(r.status_code))
 		log.info('Body: '+str(r.text))
