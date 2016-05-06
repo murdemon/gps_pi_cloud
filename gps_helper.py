@@ -266,7 +266,7 @@ def We_on_home(currentGeoPoint,config):
   home_longitude = config.get('conf','home_longitude')
   lat_diff = abs(float(home_latitude) - currentGeoPoint[0])
   log_diff = abs(float(home_longitude) -  currentGeoPoint[1])
-  log.info("Home check"+str(currentGeoPoint[0])+"/"+str(currentGeoPoint[1])+" "+str(home_latitude)+"/"+str(home_longitude)+" "+str(lat_diff)+"/"+str(log_diff))
+  log.info("Home check "+str(currentGeoPoint[0])+"/"+str(currentGeoPoint[1])+" "+str(home_latitude)+"/"+str(home_longitude)+" "+str(lat_diff)+"/"+str(log_diff))
   if lat_diff < 0.0005 and log_diff < 0.0005:
     log.info('WIFI We at home!!!!!')
     return True

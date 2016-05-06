@@ -28,17 +28,28 @@ from gps_helper import config_set
 from gps_helper import We_on_home
 from gps_helper import distanceTravelled
 from gps_helper import save_csv
+from logging.handlers import RotatingFileHandler
+import logging.handlers
 
 config = ConfigParser.RawConfigParser()
 config.read('/home/pi/GPS/gps.conf')
 config_set(config)
 
-if len(sys.argv) == 1:
-	logging.basicConfig(filename='/home/pi/GPS/gps.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+
+#logging.basicConfig(filename='/home/pi/GPS/gps.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+#logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 log = logging.getLogger()
-if len(sys.argv) > 1:
-	log.setLevel(logging.INFO)
+log.setLevel(logging.INFO)
+
+format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+fh = logging.handlers.RotatingFileHandler('/home/pi/GPS/gps.log', maxBytes=(1048576*5), backupCount=7)
+fh.setFormatter(format)
+log.addHandler(fh)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
 
 log_set(log)
 
@@ -108,7 +119,10 @@ def Init():
  if thePortNumber == '':
     log.info('Sorry but the GPS device is not plugged in')
     sys.exit()
- theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
+ if len(sys.argv) == 1:
+ 	theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
+ if len(sys.argv) > 1:
+ 	theGPSDevice = open('/home/pi/GPS/testgps.txt', 'r')
  log.info(thePortNumber)
 #-----------------------------------------------#
 #  Read retain from file
@@ -151,7 +165,10 @@ def GPS_Loop():
  global mesur_dist
  global config
 
- data = theGPSDevice.read()
+ if len(sys.argv) > 1:
+         data = theGPSDevice.read(1)
+ if len(sys.argv) == 1:
+	 data = theGPSDevice.read()
  theDistanceChange  = 0.0
  try:
   for msg in reader.next(data):
@@ -177,15 +194,15 @@ def GPS_Loop():
                 theTotalDistanceToday = theTotalDistanceToday + theDistanceChange
 
             theTotalDistance = theTotalDistance + theDistanceChange
-            previousGeoPoint[0] = currentGeoPoint[0]
-            previousGeoPoint[1] = currentGeoPoint[1]
-            previousGeoPoint = currentGeoPoint
-            previousTime = currentTime
-            previousDate = theDate
-            log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
-	    log.info("Counter = " + str(counter))                 # log.info the value of the counter            
-            counter = counter + 1                              # increment the counter only when we have a valid sentence
-	    return 1
+    	 previousGeoPoint[0] = currentGeoPoint[0]
+    	 previousGeoPoint[1] = currentGeoPoint[1]
+    	 previousGeoPoint = currentGeoPoint
+    	 previousTime = currentTime
+    	 previousDate = theDate
+         log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+	 log.info("Counter = " + str(counter))                 # log.info the value of the counter            
+    	 counter = counter + 1                              # increment the counter only when we have a valid sentence
+	 return 1
     else:
 	currentGeoPoint = previousGeoPoint	
  except:
@@ -244,7 +261,7 @@ def Timers():
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
    Stop_Counter = Stop_Counter + 1
 
- if len(sys.argv) > 1:
+ if False: # len(sys.argv) > 1:
   if Stop_Counter > 5 and Stop_Counter < 20:
 	  home_latitude = config.set('conf','home_latitude','15')
 	  home_longitude = config.set('conf','home_longitude','15')
