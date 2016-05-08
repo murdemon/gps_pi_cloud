@@ -22,6 +22,12 @@ from requests_twisted import TwistedRequestsSession
 import logging
 import ast
 
+def str_color(color, data):
+    colors = {'pink': '\033[95m', 'blue': '\033[94m', 'green': '\033[92m', 'yellow': '\033[93m', 'red': '\033[91m',
+      'ENDC': '\033[0m', 'bold': '\033[1m', 'underline': '\033[4m'}
+
+    return colors[color] + str(data) + colors['ENDC']
+
 session = TwistedRequestsSession()
 log = logging.getLogger()
 was_wifi = False
@@ -48,9 +54,6 @@ def log_set(log_main):
 def convertGPSToXYZ(geoPoint):
     earthRadius = 3963.34
     Z = earthRadius*math.sin(math.radians(geoPoint[0]))
-#    r = math.sqrt( math.pow(earthRadius, 2) - math.pow(Z, 2) )
-#    Y = r * math.sin(math.radians(geoPoint[1]))
-#    X = math.sqrt( math.pow(earthRadius, 2) - math.pow(Y, 2) - math.pow(Z, 2) )
     X = earthRadius*math.cos(math.radians(geoPoint[0]))*math.cos(math.radians(geoPoint[1]))
     Y = earthRadius*math.cos(math.radians(geoPoint[0]))*math.sin(math.radians(geoPoint[1]))
     if math.fabs(geoPoint[1])>90.0:
@@ -69,7 +72,6 @@ def ConvToDecim(cord):
     min = int(float(cord)-float(deg)*100)
     sec = ((float(cord)-float(deg)*100-float(min))*60)
     decim = float(deg)+float(min)/60+float(sec)/3600
-#    print(cord, deg,min,sec, str(decim))
     return decim
 
 def convertHHMMSSToTotalSeconds(inputTime):
@@ -89,10 +91,10 @@ def verifyVDB(inputLine, geoPoint):
 #  because all the interior data values are obtained after splitting the data
     global dt_now_PLC
     if inputLine[0:6] != '$GPRMC':
-        log.info('Bad sentence type ' + inputLine[0:6])
+        log.debug('Bad sentence type ' + inputLine[0:6])
         return False
     if inputLine[len(inputLine)-5:len(inputLine)-4] != '*':
-        log.info('Bad ending asterisk ' + inputLine[len(inputLine)-5:len(inputLine)-4])
+        log.debug('Bad ending asterisk ' + inputLine[len(inputLine)-5:len(inputLine)-4])
         return False
     calculatedCheckSum = 0
     for i in range(1,len(inputLine)-5):
@@ -102,14 +104,14 @@ def verifyVDB(inputLine, geoPoint):
     if len(checkSumString) == 1:
         checkSumString = '0' + checkSumString
     if checkSumString != inputLine[len(inputLine)-4:len(inputLine)-2]:
-        log.info('Mismatched check sums are: ' + checkSumString + ' and ' + inputLine[len(inputLine)-4:len(inputLine)-2])
+        log.debug('Mismatched check sums are: ' + checkSumString + ' and ' + inputLine[len(inputLine)-4:len(inputLine)-2])
         return False
     theSplit = inputLine.split(',')
     if (theSplit[2] != 'A'):
-        log.info('Bad Validity')
+        log.debug('Bad Validity')
         return False
     if (theSplit[4] != 'N') and (theSplit[4] != 'S'):
-        log.info('Bad N S')
+        log.debug('Bad N S')
         return False
     try:
         degreesLatitude = float(theSplit[3]) / 100.0
@@ -118,10 +120,10 @@ def verifyVDB(inputLine, geoPoint):
             degreesLatitude = -1.0*degreesLatitude
         geoPoint[0] = degreesLatitude    
     except ValueError:
-        log.info('Latitude value error')
+        log.debug('Latitude value error')
         return False  
     if (theSplit[6] != 'E') and (theSplit[6] != 'W'):
-        log.info('Bad E W')
+        log.debug('Bad E W')
         return False
     try:
         degreesLongitude = float(theSplit[5]) / 100.0
@@ -130,38 +132,38 @@ def verifyVDB(inputLine, geoPoint):
             degreesLongitude = -1.0*degreesLongitude
         geoPoint[1] = degreesLongitude    
     except ValueError:
-        log.info('Longitude value error')
+        log.debug('Longitude value error')
         return False
     try:
         theTime = float(theSplit[1])
-        log.info('The UTC Time is: ' + str(theTime))
+        log.debug('The UTC Time is: ' + str(theTime))
 	theTime = convertHHMMSSToTotalSeconds(theTime)
-        log.info('The UTC Time (total seconds) is: ' + str(theTime))
+        log.debug('The UTC Time (total seconds) is: ' + str(theTime))
         geoPoint[2] = theTime
     except ValueError:
-        log.info('Bad UTC Time')
+        log.debug('Bad UTC Time')
         return False
     try:
         theVelocity = float(theSplit[7])
-        log.info('The Velocity is: ' + str(theVelocity))
+        log.debug('The Velocity is: ' + str(theVelocity))
         geoPoint[3] = theVelocity
     except ValueError:
-        log.info('Bad Velocity')
+        log.debug('Bad Velocity')
         return False
     try:
         theBearing = float(theSplit[8])
-        log.info('The Bearing is: ' + str(theBearing))
+        log.debug('The Bearing is: ' + str(theBearing))
         geoPoint[4] = theBearing
     except ValueError:
-        log.info('Bad Bearing')
+        log.debug('Bad Bearing')
         return False
     try:
         theDate = theSplit[9]
         theDate = theDate[2:4] + "/" + theDate[0:2] + "/20" + theDate[4:6]  # format the date as: mm/dd/yyyy
-        log.info('The Date is: ' + str(theDate))
+        log.debug('The Date is: ' + str(theDate))
         geoPoint[5] = theDate
     except ValueError:
-        log.info('Bad Date')
+        log.debug('Bad Date')
         return False
 
     theDate = theSplit[9]
@@ -176,7 +178,7 @@ def verifyVDB(inputLine, geoPoint):
     dt_now_PLC = datetime( *new_datetime[:6])
     dt =dt_now_PLC - timedelta(hours=7)
     dt_now_PLC = dt
-    log.info("Date Time UTC " + str(dt_now_PLC))
+    log.debug("Date Time UTC " + str(dt_now_PLC))
     return True    
 
 def Check_WiFi():
@@ -231,7 +233,7 @@ def updating_cloud():
     global sending_in_progress
     global was_wifi
 
-    log.info("POST loop " + str(new_data))
+    log.info(str_color("pink",  "[POST loop] New data to cloud = " + str(bool(new_data))))
 
     file_emty = os.stat('/home/pi/GPS/setSensorData.csv').st_size==0
     is_wifi = Check_WiFi()
@@ -266,12 +268,12 @@ def We_on_home(currentGeoPoint,config):
   home_longitude = config.get('conf','home_longitude')
   lat_diff = abs(float(home_latitude) - currentGeoPoint[0])
   log_diff = abs(float(home_longitude) -  currentGeoPoint[1])
-  log.info("Home check "+str(currentGeoPoint[0])+"/"+str(currentGeoPoint[1])+" "+str(home_latitude)+"/"+str(home_longitude)+" "+str(lat_diff)+"/"+str(log_diff))
+  log.debug("Home check "+str(currentGeoPoint[0])+"/"+str(currentGeoPoint[1])+" "+str(home_latitude)+"/"+str(home_longitude)+" "+str(lat_diff)+"/"+str(log_diff))
   if lat_diff < 0.0005 and log_diff < 0.0005:
-    log.info('WIFI We at home!!!!!')
+    log.info(str_color("green", str(dt_now_PLC)+' WIFI We at home!!!!!'))
     return True
   else:
-    log.info('WIFI We not home!!!!!!')
+    log.info(str_color("pink",  str(dt_now_PLC)+' WIFI We not home!!!!!!'))
     return False
 
 def handleFailure(f):

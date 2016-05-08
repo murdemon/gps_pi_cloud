@@ -3,4 +3,5 @@
 rm retain &
 rm setSensorData.csv &
 rm gps.log &
+rm gps.log.* &
 rm LoggedData.csv &

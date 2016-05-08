@@ -28,6 +28,7 @@ from gps_helper import config_set
 from gps_helper import We_on_home
 from gps_helper import distanceTravelled
 from gps_helper import save_csv
+from gps_helper import str_color
 from logging.handlers import RotatingFileHandler
 import logging.handlers
 
@@ -35,15 +36,12 @@ config = ConfigParser.RawConfigParser()
 config.read('/home/pi/GPS/gps.conf')
 config_set(config)
 
-
-#logging.basicConfig(filename='/home/pi/GPS/gps.log',level=logging.INFO,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-#logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
 format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-fh = logging.handlers.RotatingFileHandler('/home/pi/GPS/gps.log', maxBytes=(1048576*5), backupCount=7)
+fh = logging.handlers.RotatingFileHandler('/home/pi/GPS/gps.log', maxBytes=(1048576*30), backupCount=3)
 fh.setFormatter(format)
 log.addHandler(fh)
 
@@ -123,7 +121,7 @@ def Init():
  	theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
  if len(sys.argv) > 1:
  	theGPSDevice = open('/home/pi/GPS/testgps.txt', 'r')
- log.info(thePortNumber)
+ log.info(str_color("blue", thePortNumber))
 #-----------------------------------------------#
 #  Read retain from file
 #-----------------------------------------------#
@@ -172,8 +170,7 @@ def GPS_Loop():
  theDistanceChange  = 0.0
  try:
   for msg in reader.next(data):
-    log.info(msg)
-    outputFile.write(str(msg) + chr(13) + chr(10))                       # log the data
+    log.debug(msg)
 
     inputLine = str(msg) + "  "
     currentGeoPoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]    # Latitude  Longitude  Time  Velocity  Bearing  Date
@@ -182,7 +179,7 @@ def GPS_Loop():
         theVelocity = previousGeoPoint[3] * 1.150777    # convert knots to miles per hour
         theBearing = previousGeoPoint[4]
         theDate = currentGeoPoint[5]
-   
+   	outputFile.write(str(msg) + chr(13) + chr(10))                       # log the data
         if ( (currentTime - previousTime) > timeDelay  ) and ( (currentGeoPoint[0] != previousGeoPoint[0]) or (currentGeoPoint[1] != previousGeoPoint[1]) ):
 	 if (previousGeoPoint[0] != 0 and previousGeoPoint[1] != 0):
             theDistanceChange = distanceTravelled(previousGeoPoint, currentGeoPoint)
@@ -199,15 +196,15 @@ def GPS_Loop():
     	 previousGeoPoint = currentGeoPoint
     	 previousTime = currentTime
     	 previousDate = theDate
-         log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
-	 log.info("Counter = " + str(counter))                 # log.info the value of the counter            
+         if theDistanceChange > 0:
+		log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+	 log.debug("Counter = " + str(counter))                 # log.info the value of the counter            
     	 counter = counter + 1                              # increment the counter only when we have a valid sentence
 	 return 1
     else:
 	currentGeoPoint = previousGeoPoint	
  except:
-  log.info ("Can't parse");
-# log.info("Added distance " + str(theDistanceChange) + " " + str(currentGeoPoint[0]) + "/" + str(currentGeoPoint[1]) + " - " + str(previousGeoPoint[0]) + "/" + str(previousGeoPoint[1]))
+  log.debug ("Can't parse");
 
 def Logic_Loop():
  global home
@@ -218,7 +215,7 @@ def Logic_Loop():
  global currentGeoPoint
  global config
 
- log.info("Cloud loop "+str(currentGeoPoint[0])+" "+str(currentGeoPoint[1])+" "+str(mesur_dist))
+ log.info(str_color("blue","[Cloud loop] Lat = "+str(currentGeoPoint[0])+" Lon = "+str(currentGeoPoint[1])+" Mesur dist = "+str(mesur_dist)))
 
  if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
  	home = We_on_home(currentGeoPoint,config)
