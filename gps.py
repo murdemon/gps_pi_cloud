@@ -8,9 +8,13 @@ import serial.tools.list_ports
 import time
 import sys
 import math
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
+import wiringpi
 import pynmea2
 import ConfigParser
+import signal
+import atexit
+
 from datetime import datetime
 from datetime import timedelta
                                 
@@ -54,6 +58,10 @@ log_set(log)
 #------------------------------------------------------------#
 # Globals vars
 #---------------------------------------------------------------#
+CRT = 0
+CRG = 0 
+CRPO = 0 
+
 timeDelay = 0
 theTotalDistance = 0.0
 theTotalDistanceToday = 0.0
@@ -106,8 +114,14 @@ def Init():
 # Init Serial port
 #----------------------------------------------------------------#
  timeDelay = 10
- GPIO.setmode(GPIO.BCM)
- GPIO.setup(2, GPIO.IN)
+
+ signal.signal(signal.SIGINT, signal_handler)
+ signal.signal(signal.SIGTERM, signal_handler)
+
+ wiringpi.wiringPiSetup()
+ wiringpi.pinMode(21, 0)
+ wiringpi.pinMode(22, 0)
+ wiringpi.pinMode(26, 1)
 
  thePortNumber = ''  # hopefully this will become non-empty later
  listOfCOMPorts = list(serial.tools.list_ports.comports())
@@ -162,6 +176,24 @@ def GPS_Loop():
  global outputFile
  global mesur_dist
  global config
+ global CRG
+ global CRT
+ global CRPO
+
+
+#-------------LOGIC--------------------
+ CRG = wiringpi.digitalRead(21)
+ CRT = wiringpi.digitalRead(22)
+ wiringpi.digitalWrite(26,CRPO)
+
+ if CRG==0 and CRT==0:
+   if CRPO ==0:
+	log.info('Turn on CRPO pin 3.3V')
+   CRPO = 1
+ else:
+   CRPO = 0 
+
+#------------LOGIC-------------------------
 
  if len(sys.argv) > 1:
          data = theGPSDevice.read(1)
@@ -240,7 +272,11 @@ def Logic_Loop():
 
  return True
 
-
+def signal_handler(signal, frame):
+    print 'You pressed Ctrl+C!'
+    reactor.removeAll()
+    reactor.iterate()
+    reactor.stop()
 
 def Timers():
  global Stop_Counter

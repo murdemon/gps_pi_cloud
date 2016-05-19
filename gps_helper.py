@@ -9,7 +9,7 @@ import serial.tools.list_ports
 import time
 import sys
 import math
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 import pynmea2
 import ConfigParser
 from datetime import datetime
