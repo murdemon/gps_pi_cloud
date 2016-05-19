@@ -8,7 +8,6 @@ import serial.tools.list_ports
 import time
 import sys
 import math
-#import RPi.GPIO as GPIO
 import wiringpi
 import pynmea2
 import ConfigParser
@@ -90,7 +89,7 @@ was_home = True
 mesur_dist = False
 
 Stop_Counter = 0
-
+Generator_Time = 0
 
 def Init():
  global timeDelay
@@ -110,6 +109,11 @@ def Init():
  global currentTime
  global previousTime
  global mesur_dist
+ global Generator_Time
+ global CRPO
+
+ CRPO = 1
+
 #----------------------------------------------------------------#
 # Init Serial port
 #----------------------------------------------------------------#
@@ -131,25 +135,26 @@ def Init():
  if thePortNumber == '':
     log.info('Sorry but the GPS device is not plugged in')
     sys.exit()
- if len(sys.argv) == 1:
+ if len(sys.argv) == 1 or  len(sys.argv) == 3:
  	theGPSDevice = serial.Serial(port=thePortNumber, baudrate=4800, bytesize=8, stopbits=1, parity='N', xonxoff=False, timeout=0)
- if len(sys.argv) > 1:
+ if len(sys.argv) == 2:
  	theGPSDevice = open('/home/pi/GPS/testgps.txt', 'r')
  log.info(str_color("blue", thePortNumber))
 #-----------------------------------------------#
 #  Read retain from file
 #-----------------------------------------------#
  try:
-# if True:
   outputFile_dist = open('/home/pi/GPS/retain', 'r')  # open log file
   line = outputFile_dist.readline()
   theTotalDistance = float(line)
   line = outputFile_dist.readline()
   mesur_dist = ast.literal_eval(line)
+  line = outputFile_dist.readline()
+  Generator_Time = ast.literal_eval(line)
   outputFile_dist.close()
   log.info("RETAIN : Get Distance from saved file " + str(theTotalDistance))
   log.info("RETAIN : Get mesure from saved file " + str(mesur_dist))
-
+  log.info("RETAIN : Get Generator_Time from saved file " + str(Generator_Time))
  except:
   log.info("Error not get Retain")
 
@@ -179,30 +184,33 @@ def GPS_Loop():
  global CRG
  global CRT
  global CRPO
-
+ global Stop_Counter
 
 #-------------LOGIC--------------------
  CRG = wiringpi.digitalRead(21)
  CRT = wiringpi.digitalRead(22)
  wiringpi.digitalWrite(26,CRPO)
 
- if CRG==0 and CRT==0:
-   if CRPO ==0:
-	log.info('Turn on CRPO pin 3.3V')
-   CRPO = 1
+
+ if CRG == 0:
+	Stop_Counter = 0
+ if CRG and Stop_Counter > 60:
+   	if CRPO:
+		log.info('Turn off Power')
+        CRPO = 0
  else:
-   CRPO = 0 
+	CRPO = 1 
 
 #------------LOGIC-------------------------
 
- if len(sys.argv) > 1:
+ if len(sys.argv) == 2:
          data = theGPSDevice.read(1)
- if len(sys.argv) == 1:
+ if len(sys.argv) == 1 or  len(sys.argv) == 3:
 	 data = theGPSDevice.read()
  theDistanceChange  = 0.0
  try:
   for msg in reader.next(data):
-    log.debug(msg)
+    log.info(msg)
 
     inputLine = str(msg) + "  "
     currentGeoPoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]    # Latitude  Longitude  Time  Velocity  Bearing  Date
@@ -246,6 +254,7 @@ def Logic_Loop():
  global new_data
  global currentGeoPoint
  global config
+ global Generator_Time
 
  log.info(str_color("blue","[Cloud loop] Lat = "+str(currentGeoPoint[0])+" Lon = "+str(currentGeoPoint[1])+" Mesur dist = "+str(mesur_dist)))
 
@@ -255,12 +264,16 @@ def Logic_Loop():
 	   log.info("we go out from BASE !!!!!!!!!!!!!!!!")
 	   mesur_dist = True
 	   theTotalDistance = 0.0
+#	   Generator_Time = 0
 	was_home = home
 	
 	if mesur_dist and theTotalDistance > 1.0 and home:
 	   log.info("Going distance is " + str(theTotalDistance))
-	   save_csv(theTotalDistance,config)
+	   save_csv(theTotalDistance,config,1)
+           save_csv(Generator_Time,config,2)
 	   mesur_dist = False
+	   Generator_Time = 0
+
 
         if mesur_dist and theTotalDistance <= 1.0 and home:
            log.info("Weon home with small distance (clear) is " + str(theTotalDistance))
@@ -278,30 +291,37 @@ def signal_handler(signal, frame):
     reactor.iterate()
     reactor.stop()
 
+Test_Counter = 0
+
 def Timers():
  global Stop_Counter
  global theVelocity
  global theTotalDistance
  global currentGeoPoint
-
+ global Generator_Time
+ global CRG
+ global Test_Counter
 
  outputFile_dist = open('/home/pi/GPS/retain', 'w')  # open log file
  outputFile_dist.write(str(theTotalDistance)+ chr(13) + chr(10))
  outputFile_dist.write(str(mesur_dist)+ chr(13) + chr(10))
+ outputFile_dist.write(str(Generator_Time)+ chr(13) + chr(10))
  outputFile_dist.close()
 
+ if CRG==0:
+	 Generator_Time = Generator_Time + 1
+ Stop_Counter = Stop_Counter + 1
+ if  currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
+ 	 Test_Counter = Test_Counter + 1
 
- if currentGeoPoint[0] != 0 and currentGeoPoint[1] != 0:
-   Stop_Counter = Stop_Counter + 1
-
- if False: # len(sys.argv) > 1:
-  if Stop_Counter > 5 and Stop_Counter < 20:
+ if len(sys.argv) == 3:
+  if Test_Counter > 5 and Test_Counter < 20:
 	  home_latitude = config.set('conf','home_latitude','15')
 	  home_longitude = config.set('conf','home_longitude','15')
 	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL OUTTTTTT")
-  if Stop_Counter > 10:
+  if Test_Counter > 10:
 	  theTotalDistance = 500
-  if Stop_Counter > 20:
+  if Test_Counter > 20:
           home_latitude = config.set('conf','home_latitude','34.044634')
           home_longitude = config.set('conf','home_longitude','-118.494581')
 	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL BACK")

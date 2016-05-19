@@ -195,7 +195,7 @@ def Power_Off():
   response = os.system("sudo shutdown -h now")
 
 
-def save_csv(val,config):
+def save_csv(val,config,sensor_num):
 	global dt_now_PLC
 	global new_data
 	global sending_in_progress
@@ -206,18 +206,18 @@ def save_csv(val,config):
 		timestamp = _time.mktime(dt.timetuple())
 		datetime_now = datetime.strftime(dt, "%Y-%m-%d %H:%M:%S")
 		log.info("write to CSV for  Distance: "+str(val))                                    
-		writer.writerow({"Operation": config.get('conf','Operation'),\
-				 "Flag": config.get('conf','Flag'),\
-				 "ObjectId": config.get('conf','ObjectId'),\
-                                 "ObjectType": config.get('conf','ObjectType'),\
+		writer.writerow({"Operation": config.get('Sensor_'+str(sensor_num),'Operation'),\
+				 "Flag": config.get('Sensor_'+str(sensor_num),'Flag'),\
+				 "ObjectId": config.get('Sensor_'+str(sensor_num),'ObjectId'),\
+                                 "ObjectType": config.get('Sensor_'+str(sensor_num),'ObjectType'),\
                                  "MobileRecordId": "SensorData"+"-"+str(timestamp),\
-                                 "Functional Group Name": config.get('conf','Functional Group Name'),\
-                                 "Organization Name": config.get('conf','Organization Name'),\
-                                 "Organization Number": config.get('conf','Organization Number'),\
+                                 "Functional Group Name": config.get('Sensor_'+str(sensor_num),'Functional Group Name'),\
+                                 "Organization Name": config.get('Sensor_'+str(sensor_num),'Organization Name'),\
+                                 "Organization Number": config.get('Sensor_'+str(sensor_num),'Organization Number'),\
                                  "Value": 0 if val == -9999 else str('%.2f' % val),\
                                  "Datetime": datetime_now,\
-                                 "Sensor Name": config.get('conf','Sensor Name'),\
-                                 "SensorRecordId": config.get('conf','SensorRecordId')\
+                                 "Sensor Name": config.get('Sensor_'+str(sensor_num),'Sensor Name'),\
+                                 "SensorRecordId": config.get('Sensor_'+str(sensor_num),'SensorRecordId')\
 				})
 		new_data = 1
 
