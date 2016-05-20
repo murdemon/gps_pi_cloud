@@ -89,7 +89,7 @@ was_home = True
 mesur_dist = False
 
 Stop_Counter = 0
-Generator_Time = 0
+Generator_Time = 0.0
 
 def Init():
  global timeDelay
@@ -269,11 +269,12 @@ def Logic_Loop():
 	
 	if mesur_dist and theTotalDistance > 1.0 and home:
 	   log.info("Going distance is " + str(theTotalDistance))
-	   save_csv(theTotalDistance,config,1)
-           save_csv(Generator_Time,config,2)
-	   mesur_dist = False
-	   Generator_Time = 0
+           log.info("Generator time is " + str(Generator_Time))
 
+	   save_csv(theTotalDistance,config,1)
+           save_csv(float(Generator_Time)/3600,config,2)
+	   mesur_dist = False
+	   Generator_Time = 0.0
 
         if mesur_dist and theTotalDistance <= 1.0 and home:
            log.info("Weon home with small distance (clear) is " + str(theTotalDistance))
@@ -302,6 +303,8 @@ def Timers():
  global CRG
  global Test_Counter
 
+ log.info("Generator time TIMERS is " + str(Generator_Time))
+
  outputFile_dist = open('/home/pi/GPS/retain', 'w')  # open log file
  outputFile_dist.write(str(theTotalDistance)+ chr(13) + chr(10))
  outputFile_dist.write(str(mesur_dist)+ chr(13) + chr(10))
@@ -320,6 +323,7 @@ def Timers():
 	  home_longitude = config.set('conf','home_longitude','15')
 	  log.info("SIMULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL OUTTTTTT")
   if Test_Counter > 10:
+	  Generator_Time = 3000
 	  theTotalDistance = 500
   if Test_Counter > 20:
           home_latitude = config.set('conf','home_latitude','34.044634')
