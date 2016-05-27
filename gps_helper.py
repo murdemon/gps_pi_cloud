@@ -227,7 +227,7 @@ def save_csv(val,config,sensor_num):
 				})
 		new_data = 1
 
-def save_csv_trailer(val,config,sensor_num):
+def save_csv_trailer(val,config,dist,hours):
         global dt_now_PLC
         global new_data_trailer
         global sending_in_progress
@@ -267,8 +267,8 @@ def save_csv_trailer(val,config,sensor_num):
 				 "Temperature2": config.get('Trailer','Temperature2'),\
 				 "Door Status": config.get('Trailer','Door Status'),\
 				 "Heading": config.get('Trailer','Heading'),\
-				 "Generator Hours": config.get('Trailer','Generator Hours'),\
-				 "Miles": config.get('Trailer','Miles'),\
+				 "Generator Hours": str('%.2f' % hours),\
+				 "Miles": str('%.2f' % dist),\
 				 "Fuel Rate": config.get('Trailer','Fuel Rate'),\
 				 "Shock": config.get('Trailer','Shock'),\
 				 "Tire Pressures": config.get('Trailer','Tire Pressures'),\
@@ -295,19 +295,30 @@ def updating_cloud():
     log.info(str_color("pink",  "[POST loop] New data to cloud = " + str(bool(new_data))))
 
     file_emty = os.stat('/home/pi/GPS/setSensorData.csv').st_size==0
+
+#   file_emty_trailer = False
+    file_emty_trailer = os.stat('/home/pi/GPS/setTrailers.csv').st_size==0
+
     is_wifi = Check_WiFi()
-    if not file_emty and is_wifi and not was_wifi and  sending_in_progress == 0:
-	log.info("We on Wifi and file not emty");
+
+    if not file_emty and is_wifi and not was_wifi:
+	log.info("We on Wifi and file not emty sensor");
 	new_data = 1
+
+    if not file_emty_trailer and is_wifi and not was_wifi:
+        log.info("We on Wifi and file not emty trailer");
+        new_data_trailer = 1
+
     was_wifi = is_wifi
 
-    post_url = config.get('conf','post_url')
     if new_data == 1 and sending_in_progress == 0:
         csvfile.close()
 	sending_in_progress = 1
 	#-----------------------------------------------#
 	# if have ne data make API setSensorData
 	#-----------------------------------------------#
+        post_url = config.get('conf','post_url')
+
         log.info('Upload Sensors data to Cloud')
         csvfile = open('/home/pi/GPS/setSensorData.csv', 'rb')
 	multiple_files = [('text', ('setSensorData.csv', csvfile , 'text/plain'))]
@@ -321,6 +332,8 @@ def updating_cloud():
         #-----------------------------------------------#
         # if have ne data make API setSensorData
         #-----------------------------------------------#
+        post_url = config.get('conf','post_url_trailer')
+
         log.info('Upload Trailers data to Cloud')
         csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'rb')
         multiple_files = [('text', ('setTrailers.csv', csvfile_Trailer , 'text/plain'))]

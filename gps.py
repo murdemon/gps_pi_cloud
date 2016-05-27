@@ -274,7 +274,7 @@ def Logic_Loop():
 
 	   save_csv(theTotalDistance,config,1)
            save_csv(float(Generator_Time)/3600,config,2)
-	   save_csv_trailer(0,config,0)
+	   save_csv_trailer(0,config,theTotalDistance,float(Generator_Time)/3600)
 	   mesur_dist = False
 	   Generator_Time = 0.0
 
