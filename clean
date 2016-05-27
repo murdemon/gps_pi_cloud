@@ -2,6 +2,7 @@
 
 rm retain &
 rm setSensorData.csv &
+rm setTrailers.csv &
 rm gps.log &
 rm gps.log.* &
 rm LoggedData.csv &

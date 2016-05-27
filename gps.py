@@ -31,6 +31,7 @@ from gps_helper import config_set
 from gps_helper import We_on_home
 from gps_helper import distanceTravelled
 from gps_helper import save_csv
+from gps_helper import save_csv_trailer
 from gps_helper import str_color
 from logging.handlers import RotatingFileHandler
 import logging.handlers
@@ -273,6 +274,7 @@ def Logic_Loop():
 
 	   save_csv(theTotalDistance,config,1)
            save_csv(float(Generator_Time)/3600,config,2)
+	   save_csv_trailer(0,config,0)
 	   mesur_dist = False
 	   Generator_Time = 0.0
 

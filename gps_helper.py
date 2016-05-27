@@ -32,12 +32,18 @@ session = TwistedRequestsSession()
 log = logging.getLogger()
 was_wifi = False
 new_data = 0
+new_data_trailer = 0
 data_was_updated = 0
 sending_in_progress = 0
 
 csvfile = open('/home/pi/GPS/setSensorData.csv', 'ab')
 fieldnames = ["Operation","Flag","ObjectId","ObjectType","MobileRecordId","Functional Group Name","Organization Name","Organization Number","Value","Datetime","Sensor Name","SensorRecordId"]
 writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
+
+
+csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'ab')
+fieldnames_Trailer = ["Operation","Flag","ObjectId","ObjectType","MobileRecordId","FunctionalGroupName","Organization Name","Organization Number","LicenseNumber","VIN","Make","Model","Year","Last Worked","Country","StateRegion","City","Company","FirstName","LastName","MobilePhone","Latitude","Longitude","Active","Speed","Temperature1","Temperature2","Door Status","Heading","Generator Hours","Miles","Fuel Rate","Shock","Tire Pressures","ItemType","treads"]
+writer_Trailer = csv.DictWriter(csvfile_Trailer, fieldnames=fieldnames_Trailer, quoting=csv.QUOTE_ALL)
 
 dt_now_PLC =  datetime.now()
 
@@ -210,7 +216,7 @@ def save_csv(val,config,sensor_num):
 				 "Flag": config.get('Sensor_'+str(sensor_num),'Flag'),\
 				 "ObjectId": config.get('Sensor_'+str(sensor_num),'ObjectId'),\
                                  "ObjectType": config.get('Sensor_'+str(sensor_num),'ObjectType'),\
-                                 "MobileRecordId": "SensorData"+"-"+str(timestamp),\
+                                 "MobileRecordId": "SensorData"+"_"+str(sensor_num)+"-"+str(timestamp),\
                                  "Functional Group Name": config.get('Sensor_'+str(sensor_num),'Functional Group Name'),\
                                  "Organization Name": config.get('Sensor_'+str(sensor_num),'Organization Name'),\
                                  "Organization Number": config.get('Sensor_'+str(sensor_num),'Organization Number'),\
@@ -221,10 +227,63 @@ def save_csv(val,config,sensor_num):
 				})
 		new_data = 1
 
+def save_csv_trailer(val,config,sensor_num):
+        global dt_now_PLC
+        global new_data_trailer
+        global sending_in_progress
+
+        if sending_in_progress == 0:
+                now = dt_now_PLC
+                dt = dt_now_PLC
+                timestamp = _time.mktime(dt.timetuple())
+                datetime_now = datetime.strftime(dt, "%Y-%m-%d %H:%M:%S")
+                log.info("write to CSV for  Distance: "+str(val))
+                writer_Trailer.writerow({"Operation": config.get('Trailer','Operation'),\
+				 "Flag": config.get('Trailer','Flag'),\
+				 "ObjectId": config.get('Trailer','ObjectId'),\
+				 "ObjectType": config.get('Trailer','ObjectType'),\
+				 "MobileRecordId": config.get('Trailer','MobileRecordId'),\
+				 "FunctionalGroupName": config.get('Trailer','FunctionalGroupName'),\
+ 				 "Organization Name": config.get('Trailer','Organization Name'),\
+				 "Organization Number": config.get('Trailer','Organization Number'),\
+				 "LicenseNumber": config.get('Trailer','LicenseNumber'),\
+				 "VIN": config.get('Trailer','VIN'),\
+				 "Make": config.get('Trailer','Make'),\
+				 "Model": config.get('Trailer','Model'),\
+				 "Year": config.get('Trailer','Year'),\
+				 "Last Worked": config.get('Trailer','Last Worked'),\
+				 "Country": config.get('Trailer','Country'),\
+				 "StateRegion": config.get('Trailer','StateRegion'),\
+				 "City": config.get('Trailer','City'),\
+				 "Company": config.get('Trailer','Company'),\
+				 "FirstName": config.get('Trailer','FirstName'),\
+				 "LastName": config.get('Trailer','LastName'),\
+				 "MobilePhone": config.get('Trailer','MobilePhone'),\
+				 "Latitude": config.get('Trailer','Latitude'),\
+				 "Longitude": config.get('Trailer','Longitude'),\
+				 "Active": config.get('Trailer','Active'),\
+				 "Speed": config.get('Trailer','Speed'),\
+				 "Temperature1": config.get('Trailer','Temperature1'),\
+				 "Temperature2": config.get('Trailer','Temperature2'),\
+				 "Door Status": config.get('Trailer','Door Status'),\
+				 "Heading": config.get('Trailer','Heading'),\
+				 "Generator Hours": config.get('Trailer','Generator Hours'),\
+				 "Miles": config.get('Trailer','Miles'),\
+				 "Fuel Rate": config.get('Trailer','Fuel Rate'),\
+				 "Shock": config.get('Trailer','Shock'),\
+				 "Tire Pressures": config.get('Trailer','Tire Pressures'),\
+				 "ItemType": config.get('Trailer','ItemType'),\
+				 "treads": config.get('Trailer','treads')\
+                                })
+                new_data_trailer = 1
+
 def updating_cloud():
     global csvfile
     global writer
+    global csvfile_Trailer
+    global writer_Trailer
     global new_data
+    global new_data_trailer
     global session
     global data_was_updated
     global sending_in_progress
@@ -249,12 +308,25 @@ def updating_cloud():
 	#-----------------------------------------------#
 	# if have ne data make API setSensorData
 	#-----------------------------------------------#
-        log.info('Upload data to Cloud')
+        log.info('Upload Sensors data to Cloud')
         csvfile = open('/home/pi/GPS/setSensorData.csv', 'rb')
 	multiple_files = [('text', ('setSensorData.csv', csvfile , 'text/plain'))]
         r = session.post(post_url, files=multiple_files, timeout=20, stream=True)
 	r.addCallback(print_status)
 	r.addErrback(handleFailure) 
+
+    if new_data_trailer == 1 and sending_in_progress == 0:
+        csvfile_Trailer.close()
+        sending_in_progress = 1
+        #-----------------------------------------------#
+        # if have ne data make API setSensorData
+        #-----------------------------------------------#
+        log.info('Upload Trailers data to Cloud')
+        csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'rb')
+        multiple_files = [('text', ('setTrailers.csv', csvfile_Trailer , 'text/plain'))]
+        r = session.post(post_url, files=multiple_files, timeout=20, stream=True)
+        r.addCallback(print_status_trailer)
+        r.addErrback(handleFailure_trailer)
 
     if data_was_updated == 1:   
 	#----------------------------------------------------------------#
@@ -317,3 +389,46 @@ def print_status(r):
                         new_data = 0
 			data_was_updated = 1
 	        writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
+
+def handleFailure_trailer(f):
+         global csvfile_Trailer
+         global writer_Trailer
+         global new_data_trailer
+         global data_was_updated
+         global sending_in_progress
+
+         csvfile_Trailer.close()
+         sending_in_progress = 0
+         log.info("Timeout POST Trailer data to Cloud ")
+         csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'ab')
+         data_was_updated = 1
+         new_data_trailer = 0
+         writer_Trailer = csv.DictWriter(csvfile_Trailer, fieldnames=fieldnames_Trailer, quoting=csv.QUOTE_ALL)
+
+def print_status_trailer(r):
+                global csvfile_Trailer
+                global writer_Trailer
+                global new_data_trailer
+                global data_was_updated
+                global sending_in_progress
+
+                csvfile_Trailer.close()
+                sending_in_progress = 0
+                log.info('Status: '+str(r.status_code))
+                log.info('Body: '+str(r.text))
+
+                if r.status_code == 200:
+                        csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'wb')
+                        new_data_trailer = 0
+                        data_was_updated = 1
+                        writer_Trailer = csv.DictWriter(csvfile_Trailer, fieldnames=fieldnames_Trailer, quoting=csv.QUOTE_ALL)
+                elif r.status_code == 404:
+                        csvfile_Trailer = open('/home/pi/GPS/setTrailers.csv', 'ab')
+                        new_data_trailer = 0
+                        data_was_updated = 1
+                else:
+                        csvfile_Trailer = open('/home/pi/setTrailers.csv', 'ab')
+                        new_data_trailer = 0
+                        data_was_updated = 1
+                writer_Trailer = csv.DictWriter(csvfile_Trailer, fieldnames=fieldnames_Trailer, quoting=csv.QUOTE_ALL)
+
